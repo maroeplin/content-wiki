@@ -1,23 +1,86 @@
-import Head from 'next/head'
-import Image from 'next/image'
-import styles from '../styles/Home.module.css'
-import { Inter } from '@next/font/google'
 
+import { useState, useEffect } from "react";
+import Head from "next/head";
+import Image from "next/image";
+import Link from "next/link";
+import { Inter } from "@next/font/google";
 
-const inter = Inter({ subsets: ['latin'] })
-const defaultEndpoint = 'https://rickandmortyapi.com/api/character';
+const inter = Inter({ subsets: ["latin"] });
+const defaultEndpoint = "https://rickandmortyapi.com/api/character";
+
 export async function getServerSideProps() {
   const rest = await fetch(defaultEndpoint);
   const data = await rest.json();
-  return{
+  return {
     props: {
-      data
-    }
-  }
+      data,
+    },
+  };
 }
 
-export default function Home({data}) {
-  console.log(data)
+export default function Home({ data }) {
+  const { info, results: defaultResults = [] } = data;
+  const [results, updateResults] = useState(defaultResults);
+  const [page, updatePage] = useState({
+    ...info,
+    current: defaultEndpoint
+  });
+
+  const { current } = page;
+  
+  useEffect(() => {
+    if ( current === defaultEndpoint ) return;
+
+  
+  async function request() {
+    const res = await fetch(current)
+    const nextData = await res.json();
+ 
+
+  updatePage({
+    current,
+    ...nextData.info
+  });
+
+  if ( !nextData.info?.prev) {
+    updateResults(nextData.results);
+    return;
+  }
+
+  updateResults(prev => {
+    return[
+      ...prev,
+      ...nextData.results
+    ]
+  });
+}
+  request();
+  {}
+}, [current]);
+
+function handleLoadMore() {
+  updatePage(prev => {
+    return {
+      ...prev,
+      current: page?.next
+    }
+  });
+}
+
+function handleOnSubmitSearch(e) {
+  e.preventDefault();
+  const {currentTarget = {} } = e;
+  const fields = Array.from(currentTarget?.elements);
+  const fieldQuery = fields.find(field => field.name === 'query');
+
+  const value = fieldQuery.value || '';
+  const endpoint = `https://rickandmortyapi.com/api/character/?name=${value}`;
+  
+  updatePage({
+    current: endpoint
+  });
+}
+
   return (
     <>
       <Head>
@@ -26,17 +89,42 @@ export default function Home({data}) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
+
       <main>
+        <div className="w-2/3 pt-32 m-auto text-center"><h1 className="text-4xl font-semibold">Content Wiki</h1>
+        <form className="grid w-full grid-rows-2 pt-16 m-auto" onSubmit={handleOnSubmitSearch}>
+          <input name="query" type="search" className="w-1/2 h-12 m-auto border border-solid-3"/>
+          <button className="px-12 py-2 m-auto my-4 text-2xl font-semibold text-center border rounded-lg bg-lime-400 border-solid-3">suchen</button>
+        </form>
+        
+        </div>
+        <div className="grid w-2/3 grid-cols-3 gap-4 pt-24 m-auto text-center" >
+          
+          {results.map((result) => {
+            const { id, name, image } = result;
+            return (
+              <>
+              <Link href="/character/[id]" as={`/character/${id}`}>  
+              <div className="p-4 border rounded-xl border-solid-2">
+                <ul className="text-3xl ">
+                  <li key={id}>
+                    <img src={image} alt={`${name} Thumb`}/>
+                    <h3>{name}</h3>
+                  </li>
+                </ul>
+              </div>
+              </Link>
+              </>
+            )
+          })}
+        </div>
+          
+        <div className="w-2/3 p-32 m-auto text-center">
+        <button className="px-12 py-4 m-auto text-2xl font-semibold text-center bg-orange-500 border rounded-2xl border-solid-3" onClick={handleLoadMore}>Load more</button>
+
+        </div>
       
-      <div>
-        <ul className='text-3xl '>
-          <li>hello</li>
-        </ul>
-      </div>
-
-
-
       </main>
     </>
-  )
+  );
 }
